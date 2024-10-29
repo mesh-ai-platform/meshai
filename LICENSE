@@ -1,0 +1,16 @@
+
+---
+
+### 1.2. Publishing the SDK on PyPI
+
+To allow users to install your package via `pip install`, you need to publish it on [PyPI (Python Package Index)](https://pypi.org/).
+
+#### **Step-by-Step Guide to Publish on PyPI**
+
+**Prerequisites:**
+
+- Ensure your package is ready for distribution.
+- Install the latest versions of `setuptools`, `wheel`, and `twine`.
+
+```bash
+pip install --upgrade setuptools wheel twine
