@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: meshai
-Version: 0.1.1
+Version: 0.1.2
 Summary: MeshAI SDK for decentralized AI model development
 Home-page: https://github.com/yourusername/meshai
 Author: Your Name
@@ -29,4 +29,4 @@ MeshAI SDK is a toolkit for decentralized AI model development, allowing domain 
 You can install the MeshAI SDK from PyPI:
 
 ```bash
-pip install meshai-sdk
+pip install meshai
