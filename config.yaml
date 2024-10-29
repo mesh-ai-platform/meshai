@@ -1,0 +1,26 @@
+model:
+  model_name_or_path: "distilbert-base-uncased"
+  num_labels: 2
+
+training:
+  epochs: 10
+  batch_size: 16
+  learning_rate: 2e-5
+  weight_decay: 0.01
+  warmup_steps: 500
+  gradient_clip_val: 1.0
+  output_dir: "./text_model_output"
+  logging_dir: "./logs"
+  save_total_limit: 2
+  early_stopping_patience: 2
+  logging_steps: 10
+  evaluation_strategy: "epoch"
+  save_strategy: "epoch"
+  load_best_model_at_end: true
+  evaluation_metrics:
+    - accuracy
+    - precision
+    - recall
+    - f1
+
+device_preference: "auto"
