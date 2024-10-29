@@ -3,8 +3,8 @@
 from setuptools import setup, find_packages
 
 setup(
-    name='meshai-sdk',
-    version='0.2.0',
+    name='meshai',
+    version='0.1.4',
     description='MeshAI SDK for decentralized AI model development',
     long_description=open('README.md').read(),
     long_description_content_type='text/markdown',
