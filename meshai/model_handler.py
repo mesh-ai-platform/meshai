@@ -1,7 +1,7 @@
 # meshai/model_handler.py
 
 import torch
-from transformers import AutoModelForSequenceClassification, AutoTokenizer
+from transformers import AutoModelForSequenceClassification, AutoTokenizer, Trainer, TrainingArguments, EarlyStoppingCallback
 from torchvision import models
 import torch.nn as nn
 import joblib
@@ -62,32 +62,30 @@ class TextModelHandler(BaseModelHandler):
         """
         Trains the text model.
         """
-        from transformers import Trainer, TrainingArguments, EarlyStoppingCallback
-
         self.logger.info("Starting training...")
         training_args = TrainingArguments(
             output_dir=output_dir,
-            num_train_epochs=10,  # Increase epochs
+            num_train_epochs=epochs,  # Set to 10 or more as needed
             per_device_train_batch_size=batch_size,
-            eval_strategy='epoch',  # Updated parameter
+            eval_strategy='epoch' if val_dataset else 'no',  # Use only eval_strategy
             save_strategy='epoch',
             logging_dir='./logs',
             logging_steps=10,
-            load_best_model_at_end=True,
+            load_best_model_at_end=True if val_dataset else False,
             save_total_limit=2,
-            evaluation_strategy='epoch',
-            eval_strategy='epoch',  # Replace evaluation_strategy
             learning_rate=2e-5,  # Adjust learning rate
-            weight_decay=0.01,  # Add weight decay
+            weight_decay=0.01,  # Add weight decay for regularization
         )
 
-        # Add Early Stopping Callback
+        # Initialize Trainer with EarlyStoppingCallback if validation is provided
+        callbacks = [EarlyStoppingCallback(early_stopping_patience=2)] if val_dataset else []
+
         trainer = Trainer(
-            model=model,
+            model=self.model,  # Corrected to self.model
             args=training_args,
             train_dataset=train_dataset,
-            eval_dataset=val_dataset,
-            callbacks=[EarlyStoppingCallback(early_stopping_patience=2)],
+            eval_dataset=val_dataset if val_dataset else None,
+            callbacks=callbacks,
         )
 
         trainer.train()
@@ -156,13 +154,16 @@ class ImageModelHandler(BaseModelHandler):
         self.logger.info("Starting image model training...")
         for epoch in range(epochs):
             self.model.train()
+            running_loss = 0.0
             for images, labels in train_loader:
                 outputs = self.model(images)
                 loss = self.criterion(outputs, labels)
                 self.optimizer.zero_grad()
                 loss.backward()
                 self.optimizer.step()
-            self.logger.info(f'Epoch {epoch+1}/{epochs}, Loss: {loss.item()}')
+                running_loss += loss.item()
+            avg_loss = running_loss / len(train_loader)
+            self.logger.info(f'Epoch {epoch+1}/{epochs}, Loss: {avg_loss:.4f}')
             if val_loader:
                 self.evaluate(val_loader)
         self.logger.info("Image model training completed.")
@@ -182,8 +183,8 @@ class ImageModelHandler(BaseModelHandler):
                 total += labels.size(0)
                 correct += (predicted == labels).sum().item()
         accuracy = 100 * correct / total
-        self.logger.info(f'Validation Accuracy: {accuracy}%')
-        print(f'Validation Accuracy: {accuracy}%')
+        self.logger.info(f'Validation Accuracy: {accuracy:.2f}%')
+        print(f'Validation Accuracy: {accuracy:.2f}%')
 
     def save_model(self, save_path):
         """
