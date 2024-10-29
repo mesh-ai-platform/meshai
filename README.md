@@ -1,7 +1,7 @@
 # MeshAI SDK
 <picture align="center">
-    <source media="(prefers-color-scheme: dark)" srcset="https://avatars.githubusercontent.com/u/186638293?s=400&u=bdf6bafa14fceca6bec5cfbacd8a70c587d99ffc&v=4">
-    <img alt="MeshAI Logo" src="https://avatars.githubusercontent.com/u/186638293?s=400&u=bdf6bafa14fceca6bec5cfbacd8a70c587d99ffc&v=4">
+    <source media="(prefers-color-scheme: dark)" srcset="./assets/meshai-high-resolution-logo.png">
+    <img alt="MeshAI Logo" src="./assets/meshai-high-resolution-logo.png">
 </picture>
 
 ## What is it?
