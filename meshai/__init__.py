@@ -4,7 +4,7 @@ from .data_handler import (
     TextDataset, ImageDataset, NumericalDataset
 )
 from .model_handler import (
-    BaseModelHandler, TextModelHandler, ImageModelHandler, NumericalModelHandler
+    BaseModelHandler, TextModelHandler
 )
 from .domain_manager import DomainManager
 from .logger import setup_logger

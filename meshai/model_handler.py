@@ -1,11 +1,19 @@
 # meshai/model_handler.py
 
 import torch
-from transformers import AutoModelForSequenceClassification, AutoTokenizer, Trainer, TrainingArguments, EarlyStoppingCallback
+from transformers import (
+    AutoModelForSequenceClassification,
+    AutoTokenizer,
+    Trainer,
+    TrainingArguments,
+    EarlyStoppingCallback
+)
 from torchvision import models
 import torch.nn as nn
 import joblib
 import os
+import numpy as np
+from sklearn.metrics import accuracy_score, precision_recall_fscore_support
 
 from meshai.logger import setup_logger
 
@@ -39,57 +47,107 @@ class BaseModelHandler:
         raise NotImplementedError
 
 class TextModelHandler(BaseModelHandler):
-    def __init__(self, model_name_or_path='distilbert-base-uncased', num_labels=2, logger=None, model=None, tokenizer=None):
+    def __init__(
+        self,
+        model_name_or_path='distilbert-base-uncased',
+        num_labels=2,
+        logger=None,
+        model=None,
+        tokenizer=None
+    ):
         """
         Initializes the text model handler with a pre-trained or custom model.
         """
         super().__init__(logger)
         self.num_labels = num_labels
 
+        # Detect available device
+        if torch.backends.mps.is_available():
+            self.device = torch.device("mps")
+            self.logger.info("Using MPS device.")
+        elif torch.cuda.is_available():
+            self.device = torch.device("cuda")
+            self.logger.info("Using CUDA device.")
+        else:
+            self.device = torch.device("cpu")
+            self.logger.info("Using CPU device.")
+
         if model and tokenizer:
-            self.model = model
+            self.model = model.to(self.device)
             self.tokenizer = tokenizer
             self.logger.info("Initialized with custom model and tokenizer.")
         else:
             self.model_name_or_path = model_name_or_path
             self.tokenizer = AutoTokenizer.from_pretrained(self.model_name_or_path)
             self.model = AutoModelForSequenceClassification.from_pretrained(
-                self.model_name_or_path, num_labels=self.num_labels
-            )
-            self.logger.info(f"Initialized with pre-trained model '{self.model_name_or_path}'.")
+                self.model_name_or_path,
+                num_labels=self.num_labels
+            ).to(self.device)
+            self.logger.info(f"Initialized with pre-trained model '{self.model_name_or_path}' on {self.device}.")
 
-    def train(self, train_dataset, val_dataset=None, epochs=3, batch_size=8, output_dir='./text_model_output'):
+    def train(
+        self,
+        train_dataset,
+        val_dataset=None,
+        epochs=10,
+        batch_size=16,
+        output_dir='./text_model_output'
+    ):
         """
         Trains the text model.
         """
         self.logger.info("Starting training...")
+
         training_args = TrainingArguments(
             output_dir=output_dir,
-            num_train_epochs=epochs,  # Set to 10 or more as needed
+            num_train_epochs=epochs,
             per_device_train_batch_size=batch_size,
-            eval_strategy='epoch' if val_dataset else 'no',  # Use only eval_strategy
+            eval_strategy='epoch' if val_dataset else 'no',
             save_strategy='epoch',
             logging_dir='./logs',
             logging_steps=10,
             load_best_model_at_end=True if val_dataset else False,
             save_total_limit=2,
-            learning_rate=2e-5,  # Adjust learning rate
-            weight_decay=0.01,  # Add weight decay for regularization
+            learning_rate=2e-5,
+            weight_decay=0.01,
+            evaluation_strategy='epoch',  # Removed to prevent duplication
         )
 
         # Initialize Trainer with EarlyStoppingCallback if validation is provided
         callbacks = [EarlyStoppingCallback(early_stopping_patience=2)] if val_dataset else []
 
         trainer = Trainer(
-            model=self.model,  # Corrected to self.model
+            model=self.model,
             args=training_args,
             train_dataset=train_dataset,
             eval_dataset=val_dataset if val_dataset else None,
             callbacks=callbacks,
+            compute_metrics=self.compute_metrics if val_dataset else None,
         )
 
         trainer.train()
         self.logger.info("Training completed.")
+
+    def compute_metrics(self, eval_pred):
+        logits, labels = eval_pred
+
+        # Convert logits to predictions
+        predictions = torch.argmax(torch.tensor(logits), dim=-1).numpy()
+
+        # Convert labels to NumPy if not already
+        if not isinstance(labels, np.ndarray):
+            labels = np.array(labels)
+
+        # Calculate metrics
+        accuracy = accuracy_score(labels, predictions)
+        precision, recall, f1, _ = precision_recall_fscore_support(labels, predictions, average='binary')
+
+        return {
+            'accuracy': accuracy,
+            'precision': precision,
+            'recall': recall,
+            'f1': f1,
+        }
 
     def save_model(self, save_path):
         """
@@ -103,9 +161,9 @@ class TextModelHandler(BaseModelHandler):
         """
         Loads the text model and tokenizer.
         """
-        self.model = AutoModelForSequenceClassification.from_pretrained(load_path)
+        self.model = AutoModelForSequenceClassification.from_pretrained(load_path).to(self.device)
         self.tokenizer = AutoTokenizer.from_pretrained(load_path)
-        self.logger.info(f"Model loaded from {load_path}")
+        self.logger.info(f"Model loaded from {load_path} on {self.device}.")
 
     def predict(self, texts):
         """
@@ -113,142 +171,14 @@ class TextModelHandler(BaseModelHandler):
         """
         self.model.eval()
         inputs = self.tokenizer(texts, return_tensors='pt', padding=True, truncation=True)
+
+        # Move inputs to the same device as the model
+        inputs = {key: value.to(self.device) for key, value in inputs.items()}
+
         with torch.no_grad():
             outputs = self.model(**inputs)
         logits = outputs.logits
         probabilities = torch.softmax(logits, dim=-1)
         predictions = torch.argmax(probabilities, dim=-1)
         self.logger.info("Prediction made.")
-        return predictions, probabilities
-
-class ImageModelHandler(BaseModelHandler):
-    def __init__(self, model_name='resnet18', num_classes=2, logger=None, model=None):
-        """
-        Initializes the image model handler with a pre-trained or custom model.
-        """
-        super().__init__(logger)
-        self.num_classes = num_classes
-
-        if model:
-            self.model = model
-            self.logger.info("Initialized with custom image model.")
-        else:
-            self.model_name = model_name
-            self.model = getattr(models, self.model_name)(pretrained=True)
-            # Modify the last layer to match the number of classes
-            if hasattr(self.model, 'fc'):
-                self.model.fc = nn.Linear(self.model.fc.in_features, self.num_classes)
-            elif hasattr(self.model, 'classifier'):
-                self.model.classifier[-1] = nn.Linear(self.model.classifier[-1].in_features, self.num_classes)
-            else:
-                raise ValueError("Unknown model architecture.")
-            self.logger.info(f"Initialized with pre-trained model '{self.model_name}'.")
-
-        self.criterion = nn.CrossEntropyLoss()
-        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=0.001)
-
-    def train(self, train_loader, val_loader=None, epochs=3):
-        """
-        Trains the image model.
-        """
-        self.logger.info("Starting image model training...")
-        for epoch in range(epochs):
-            self.model.train()
-            running_loss = 0.0
-            for images, labels in train_loader:
-                outputs = self.model(images)
-                loss = self.criterion(outputs, labels)
-                self.optimizer.zero_grad()
-                loss.backward()
-                self.optimizer.step()
-                running_loss += loss.item()
-            avg_loss = running_loss / len(train_loader)
-            self.logger.info(f'Epoch {epoch+1}/{epochs}, Loss: {avg_loss:.4f}')
-            if val_loader:
-                self.evaluate(val_loader)
-        self.logger.info("Image model training completed.")
-
-    def evaluate(self, val_loader):
-        """
-        Evaluates the image model.
-        """
-        self.logger.info("Evaluating image model...")
-        self.model.eval()
-        correct = 0
-        total = 0
-        with torch.no_grad():
-            for images, labels in val_loader:
-                outputs = self.model(images)
-                _, predicted = torch.max(outputs.data, 1)
-                total += labels.size(0)
-                correct += (predicted == labels).sum().item()
-        accuracy = 100 * correct / total
-        self.logger.info(f'Validation Accuracy: {accuracy:.2f}%')
-        print(f'Validation Accuracy: {accuracy:.2f}%')
-
-    def save_model(self, save_path):
-        """
-        Saves the image model.
-        """
-        torch.save(self.model.state_dict(), save_path)
-        self.logger.info(f"Model saved to {save_path}")
-
-    def load_model(self, load_path):
-        """
-        Loads the image model.
-        """
-        self.model.load_state_dict(torch.load(load_path))
-        self.logger.info(f"Model loaded from {load_path}")
-
-    def predict(self, images):
-        """
-        Makes predictions on image data.
-        """
-        self.model.eval()
-        with torch.no_grad():
-            outputs = self.model(images)
-            probabilities = torch.softmax(outputs, dim=-1)
-            predictions = torch.argmax(probabilities, dim=-1)
-        self.logger.info("Prediction made.")
-        return predictions, probabilities
-
-class NumericalModelHandler(BaseModelHandler):
-    def __init__(self, model=None, logger=None):
-        """
-        Initializes the numerical model handler.
-        """
-        super().__init__(logger)
-        from sklearn.ensemble import RandomForestClassifier  # Moved import here to avoid unnecessary dependency
-        self.model = model or RandomForestClassifier()
-        self.logger.info(f"Initialized with model: {self.model.__class__.__name__}")
-
-    def train(self, X_train, y_train):
-        """
-        Trains the numerical model.
-        """
-        self.logger.info("Starting training of numerical model...")
-        self.model.fit(X_train, y_train)
-        self.logger.info("Numerical model training completed.")
-
-    def save_model(self, save_path):
-        """
-        Saves the numerical model.
-        """
-        joblib.dump(self.model, save_path)
-        self.logger.info(f"Model saved to {save_path}")
-
-    def load_model(self, load_path):
-        """
-        Loads the numerical model.
-        """
-        self.model = joblib.load(load_path)
-        self.logger.info(f"Model loaded from {load_path}")
-
-    def predict(self, X):
-        """
-        Makes predictions on numerical data.
-        """
-        predictions = self.model.predict(X)
-        probabilities = self.model.predict_proba(X)
-        self.logger.info("Prediction made.")
-        return predictions, probabilities
+        return predictions.cpu(), probabilities.cpu()
