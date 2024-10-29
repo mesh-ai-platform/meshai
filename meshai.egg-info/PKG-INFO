@@ -1,13 +1,14 @@
 Metadata-Version: 2.1
 Name: meshai
-Version: 0.1.3
+Version: 0.1.5
 Summary: MeshAI SDK for decentralized AI model development
-Home-page: https://github.com/mesh-ai-platform/meshai
-Author: Robbie Tiwari
-Author-email: rtiwariops@gmail.com
+Home-page: https://github.com/robbie/meshai-sdk
+Author: Robbie (Ravi Tiwari)
+Author-email: your.email@example.com
 License: MIT
 Classifier: Programming Language :: Python :: 3
 Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
 Requires-Python: >=3.7
 Description-Content-Type: text/markdown
 License-File: LICENSE
@@ -19,10 +20,30 @@ Requires-Dist: scikit-learn
 Requires-Dist: numpy
 Requires-Dist: joblib
 Requires-Dist: Pillow
+Requires-Dist: PyPDF2
+Requires-Dist: cryptography
 
 # MeshAI SDK
+<picture align="center">
+    <source media="(prefers-color-scheme: dark)" srcset="./assets/meshai-high-resolution-logo.png">
+    <img alt="MeshAI Logo" src="./assets/meshai-high-resolution-logo.png">
+</picture>
 
-MeshAI SDK is a toolkit for decentralized AI model development, allowing domain teams to select and fine-tune appropriate pre-trained models based on their data, regardless of the data type (text, images, numerical data).
+## What is it?
+
+MeshAI SDK is an open-source toolkit designed to decentralize artificial intelligence within organizations, aligning with the data mesh paradigm. It empowers individual teams to develop, train, and maintain their own AI models, enhancing data integration, autonomy, scalability, and flexibility.
+
+## Main Features
+
+- **Domain-Oriented AI Ownership**: Assign AI agents to specific business domains using the `DomainManager`.
+- **Data Proximity**: (Upcoming) Deploy AI agents close to data sources with provided deployment tools and guidelines.
+- **Interoperability**: (Upcoming) Facilitate communication between AI agents across domains.
+- **Governance and Compliance**: Ensure adherence to standards with integrated logging and audit trails.
+- **Scalability and Flexibility**: (Upcoming) Enable scalable AI development with distributed training capabilities.
+- **Support for Multiple Data Types**: Handle text, images, numerical data, and more.
+- **Pre-trained Model Integration**: Easily load and fine-tune pre-trained models from popular libraries.
+- **Custom Model Support**: Allow users to integrate their own models and architectures.
+- **Extensibility**: Modular design allows for easy addition of new features and data handlers.
 
 ## Installation
 
