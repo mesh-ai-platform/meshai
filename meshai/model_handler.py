@@ -62,26 +62,32 @@ class TextModelHandler(BaseModelHandler):
         """
         Trains the text model.
         """
-        from transformers import Trainer, TrainingArguments
+        from transformers import Trainer, TrainingArguments, EarlyStoppingCallback
 
         self.logger.info("Starting training...")
         training_args = TrainingArguments(
             output_dir=output_dir,
-            num_train_epochs=epochs,
+            num_train_epochs=10,  # Increase epochs
             per_device_train_batch_size=batch_size,
-            evaluation_strategy='epoch' if val_dataset else 'no',
+            eval_strategy='epoch',  # Updated parameter
             save_strategy='epoch',
             logging_dir='./logs',
             logging_steps=10,
-            load_best_model_at_end=True if val_dataset else False,
-            save_total_limit=1
+            load_best_model_at_end=True,
+            save_total_limit=2,
+            evaluation_strategy='epoch',
+            eval_strategy='epoch',  # Replace evaluation_strategy
+            learning_rate=2e-5,  # Adjust learning rate
+            weight_decay=0.01,  # Add weight decay
         )
 
+        # Add Early Stopping Callback
         trainer = Trainer(
-            model=self.model,
+            model=model,
             args=training_args,
             train_dataset=train_dataset,
-            eval_dataset=val_dataset if val_dataset else None,
+            eval_dataset=val_dataset,
+            callbacks=[EarlyStoppingCallback(early_stopping_patience=2)],
         )
 
         trainer.train()

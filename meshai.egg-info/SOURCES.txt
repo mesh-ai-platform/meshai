@@ -4,7 +4,10 @@ pyproject.toml
 setup.py
 meshai/__init__.py
 meshai/data_handler.py
+meshai/domain_manager.py
+meshai/logger.py
 meshai/model_handler.py
+meshai/security.py
 meshai/utils.py
 meshai.egg-info/PKG-INFO
 meshai.egg-info/SOURCES.txt
