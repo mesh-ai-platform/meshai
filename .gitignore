@@ -20,6 +20,9 @@ site_build
 venv
 docs.zip
 archive.zip
+examples/text_model_output/
+examples/text_model/
+
 
 # vim temporary files
 *~
