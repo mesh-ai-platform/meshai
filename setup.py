@@ -4,7 +4,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='meshai',  # This is the name of your package
-    version='0.1.0',
+    version='0.1.1',
     description='MeshAI SDK for decentralized AI model development',
     long_description=open('README.md').read(),
     long_description_content_type='text/markdown',

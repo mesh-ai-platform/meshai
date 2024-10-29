@@ -7,4 +7,4 @@ MeshAI SDK is a toolkit for decentralized AI model development, allowing domain 
 You can install the MeshAI SDK from PyPI:
 
 ```bash
-pip install meshai-sdk
+pip install meshai
