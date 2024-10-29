@@ -1,10 +1,10 @@
 Metadata-Version: 2.1
 Name: meshai
-Version: 0.1.2
+Version: 0.1.3
 Summary: MeshAI SDK for decentralized AI model development
-Home-page: https://github.com/yourusername/meshai
-Author: Your Name
-Author-email: your.email@example.com
+Home-page: https://github.com/mesh-ai-platform/meshai
+Author: Robbie Tiwari
+Author-email: rtiwariops@gmail.com
 License: MIT
 Classifier: Programming Language :: Python :: 3
 Classifier: License :: OSI Approved :: MIT License

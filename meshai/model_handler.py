@@ -4,12 +4,16 @@ import torch
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
 from torchvision import models
 import torch.nn as nn
-from sklearn.base import BaseEstimator
-from sklearn.ensemble import RandomForestClassifier
 import joblib
 import os
 
+from meshai.logger import setup_logger
+
 class BaseModelHandler:
+    def __init__(self, logger=None):
+        self.logger = logger or setup_logger()
+        self.logger.info(f"Initialized {self.__class__.__name__}")
+
     def save_model(self, save_path):
         """
         Saves the model to the specified path.
@@ -35,16 +39,24 @@ class BaseModelHandler:
         raise NotImplementedError
 
 class TextModelHandler(BaseModelHandler):
-    def __init__(self, model_name='distilbert-base-uncased', num_labels=2):
+    def __init__(self, model_name_or_path='distilbert-base-uncased', num_labels=2, logger=None, model=None, tokenizer=None):
         """
-        Initializes the text model handler with a pre-trained model.
+        Initializes the text model handler with a pre-trained or custom model.
         """
-        self.model_name = model_name
+        super().__init__(logger)
         self.num_labels = num_labels
-        self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
-        self.model = AutoModelForSequenceClassification.from_pretrained(
-            self.model_name, num_labels=self.num_labels
-        )
+
+        if model and tokenizer:
+            self.model = model
+            self.tokenizer = tokenizer
+            self.logger.info("Initialized with custom model and tokenizer.")
+        else:
+            self.model_name_or_path = model_name_or_path
+            self.tokenizer = AutoTokenizer.from_pretrained(self.model_name_or_path)
+            self.model = AutoModelForSequenceClassification.from_pretrained(
+                self.model_name_or_path, num_labels=self.num_labels
+            )
+            self.logger.info(f"Initialized with pre-trained model '{self.model_name_or_path}'.")
 
     def train(self, train_dataset, val_dataset=None, epochs=3, batch_size=8, output_dir='./text_model_output'):
         """
@@ -52,6 +64,7 @@ class TextModelHandler(BaseModelHandler):
         """
         from transformers import Trainer, TrainingArguments
 
+        self.logger.info("Starting training...")
         training_args = TrainingArguments(
             output_dir=output_dir,
             num_train_epochs=epochs,
@@ -72,6 +85,7 @@ class TextModelHandler(BaseModelHandler):
         )
 
         trainer.train()
+        self.logger.info("Training completed.")
 
     def save_model(self, save_path):
         """
@@ -79,6 +93,7 @@ class TextModelHandler(BaseModelHandler):
         """
         self.model.save_pretrained(save_path)
         self.tokenizer.save_pretrained(save_path)
+        self.logger.info(f"Model saved to {save_path}")
 
     def load_model(self, load_path):
         """
@@ -86,6 +101,7 @@ class TextModelHandler(BaseModelHandler):
         """
         self.model = AutoModelForSequenceClassification.from_pretrained(load_path)
         self.tokenizer = AutoTokenizer.from_pretrained(load_path)
+        self.logger.info(f"Model loaded from {load_path}")
 
     def predict(self, texts):
         """
@@ -98,23 +114,32 @@ class TextModelHandler(BaseModelHandler):
         logits = outputs.logits
         probabilities = torch.softmax(logits, dim=-1)
         predictions = torch.argmax(probabilities, dim=-1)
+        self.logger.info("Prediction made.")
         return predictions, probabilities
 
 class ImageModelHandler(BaseModelHandler):
-    def __init__(self, model_name='resnet18', num_classes=2):
+    def __init__(self, model_name='resnet18', num_classes=2, logger=None, model=None):
         """
-        Initializes the image model handler with a pre-trained model.
+        Initializes the image model handler with a pre-trained or custom model.
         """
-        self.model_name = model_name
+        super().__init__(logger)
         self.num_classes = num_classes
-        self.model = getattr(models, self.model_name)(pretrained=True)
-        # Modify the last layer to match the number of classes
-        if hasattr(self.model, 'fc'):
-            self.model.fc = nn.Linear(self.model.fc.in_features, self.num_classes)
-        elif hasattr(self.model, 'classifier'):
-            self.model.classifier[-1] = nn.Linear(self.model.classifier[-1].in_features, self.num_classes)
+
+        if model:
+            self.model = model
+            self.logger.info("Initialized with custom image model.")
         else:
-            raise ValueError("Unknown model architecture.")
+            self.model_name = model_name
+            self.model = getattr(models, self.model_name)(pretrained=True)
+            # Modify the last layer to match the number of classes
+            if hasattr(self.model, 'fc'):
+                self.model.fc = nn.Linear(self.model.fc.in_features, self.num_classes)
+            elif hasattr(self.model, 'classifier'):
+                self.model.classifier[-1] = nn.Linear(self.model.classifier[-1].in_features, self.num_classes)
+            else:
+                raise ValueError("Unknown model architecture.")
+            self.logger.info(f"Initialized with pre-trained model '{self.model_name}'.")
+
         self.criterion = nn.CrossEntropyLoss()
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=0.001)
 
@@ -122,6 +147,7 @@ class ImageModelHandler(BaseModelHandler):
         """
         Trains the image model.
         """
+        self.logger.info("Starting image model training...")
         for epoch in range(epochs):
             self.model.train()
             for images, labels in train_loader:
@@ -130,14 +156,16 @@ class ImageModelHandler(BaseModelHandler):
                 self.optimizer.zero_grad()
                 loss.backward()
                 self.optimizer.step()
-            print(f'Epoch {epoch+1}/{epochs}, Loss: {loss.item()}')
+            self.logger.info(f'Epoch {epoch+1}/{epochs}, Loss: {loss.item()}')
             if val_loader:
                 self.evaluate(val_loader)
+        self.logger.info("Image model training completed.")
 
     def evaluate(self, val_loader):
         """
         Evaluates the image model.
         """
+        self.logger.info("Evaluating image model...")
         self.model.eval()
         correct = 0
         total = 0
@@ -147,19 +175,23 @@ class ImageModelHandler(BaseModelHandler):
                 _, predicted = torch.max(outputs.data, 1)
                 total += labels.size(0)
                 correct += (predicted == labels).sum().item()
-        print(f'Validation Accuracy: {100 * correct / total}%')
+        accuracy = 100 * correct / total
+        self.logger.info(f'Validation Accuracy: {accuracy}%')
+        print(f'Validation Accuracy: {accuracy}%')
 
     def save_model(self, save_path):
         """
         Saves the image model.
         """
         torch.save(self.model.state_dict(), save_path)
+        self.logger.info(f"Model saved to {save_path}")
 
     def load_model(self, load_path):
         """
         Loads the image model.
         """
         self.model.load_state_dict(torch.load(load_path))
+        self.logger.info(f"Model loaded from {load_path}")
 
     def predict(self, images):
         """
@@ -170,32 +202,40 @@ class ImageModelHandler(BaseModelHandler):
             outputs = self.model(images)
             probabilities = torch.softmax(outputs, dim=-1)
             predictions = torch.argmax(probabilities, dim=-1)
+        self.logger.info("Prediction made.")
         return predictions, probabilities
 
 class NumericalModelHandler(BaseModelHandler):
-    def __init__(self, model=None):
+    def __init__(self, model=None, logger=None):
         """
         Initializes the numerical model handler.
         """
+        super().__init__(logger)
+        from sklearn.ensemble import RandomForestClassifier  # Moved import here to avoid unnecessary dependency
         self.model = model or RandomForestClassifier()
+        self.logger.info(f"Initialized with model: {self.model.__class__.__name__}")
 
     def train(self, X_train, y_train):
         """
         Trains the numerical model.
         """
+        self.logger.info("Starting training of numerical model...")
         self.model.fit(X_train, y_train)
+        self.logger.info("Numerical model training completed.")
 
     def save_model(self, save_path):
         """
         Saves the numerical model.
         """
         joblib.dump(self.model, save_path)
+        self.logger.info(f"Model saved to {save_path}")
 
     def load_model(self, load_path):
         """
         Loads the numerical model.
         """
         self.model = joblib.load(load_path)
+        self.logger.info(f"Model loaded from {load_path}")
 
     def predict(self, X):
         """
@@ -203,4 +243,5 @@ class NumericalModelHandler(BaseModelHandler):
         """
         predictions = self.model.predict(X)
         probabilities = self.model.predict_proba(X)
+        self.logger.info("Prediction made.")
         return predictions, probabilities
