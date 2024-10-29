@@ -1,8 +1,14 @@
 # MeshAI SDK
+<picture align="center">
+    <source media="(prefers-color-scheme: dark)" srcset="./assets/meshai-high-resolution-logo.png">
+    <img alt="MeshAI Logo" src="./assets/meshai-high-resolution-logo.png">
+</picture>
+
+## What is it?
 
 MeshAI SDK is an open-source toolkit designed to decentralize artificial intelligence within organizations, aligning with the data mesh paradigm. It empowers individual teams to develop, train, and maintain their own AI models, enhancing data integration, autonomy, scalability, and flexibility.
 
-## Features
+## Main Features
 
 - **Domain-Oriented AI Ownership**: Assign AI agents to specific business domains using the `DomainManager`.
 - **Data Proximity**: (Upcoming) Deploy AI agents close to data sources with provided deployment tools and guidelines.
